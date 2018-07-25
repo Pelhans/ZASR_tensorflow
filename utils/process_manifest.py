@@ -21,12 +21,13 @@ def get_path_trans(manifest_path="data/aishell/manifest.train"  ):
         duration.append(man_dict["duration"])
     return path_to_wav, transcript, duration
 
-def creat_dict(vocab):
+def create_dict(vocab):
     '''
     Creat word dict and map from word to num
     '''
 
     total_words = open(vocab, 'r').readlines()
+    total_words = [word.strip().decode('utf-8') for word in total_words]
     counter = Counter(total_words)
     words = sorted(counter)
     word_size = len(words)

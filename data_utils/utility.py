@@ -12,7 +12,6 @@ import md5
 from Queue import Queue
 from threading import Thread
 from multiprocessing import Process, Manager, Value
-from paddle.v2.dataset.common import md5file
 
 
 def read_manifest(manifest_path, max_duration=float('inf'), min_duration=0.0):

@@ -5,6 +5,9 @@ from __future__ import print_function
 
 import distutils.util
 
+'''
+Help to show args
+'''
 
 def print_arguments(args):
     """Print argparse's arguments.
