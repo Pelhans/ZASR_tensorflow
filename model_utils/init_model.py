@@ -55,7 +55,7 @@ class BiRNN(object):
         batch_x_shape = tf.shape(batch_x)
                       
         # 将输入转成时间序列优先
-        batch_x = tf.transpose(batch_x, [1, 0, 2]) 
+        batch_x = tf.transpose(batch_x, [1, 0, 2])
         # 再转成2维传入第一层
         batch_x = tf.reshape(batch_x,
                              [-1,
@@ -130,6 +130,44 @@ class BiRNN(object):
  
         # Output shape: [n_steps, self.hyparam.batch_size, n_character]
         self.logits = layer_6
+
+    def deepspeech2(input_tensor, seq_length, words_size, keep_dropout, hyparam):
+        '''
+        BUild a network with CNN-BRNN-Lookahead CNN -FC.
+        '''
+        batch_x = input_tensor
+        seq_length = eq_length
+        n_character = words_size + 1
+        keep_dropout = keep_dropout
+        n_input = hyparam.n_input
+
+        batch_x_shape = tf.shape(batch_x)
+        batch_x = tf.transpose(batch_x, [1, 0, 2])
+        batch_x = tf.expand_dims(batch_x, -1)
+        batch_x = tf.reshape(batch_x, [hyparam.batch_size, -1, n_input + 2 * n_input * n_context, 1] )
+
+        filter = tf.get_variable("filter", 
+                                 shape=[2,  n_input + 2 * n_input * n_context, 1,  n_input + 2 * n_input * n_context],
+                                 regularizer=tf.contrib.layers.l2_regularizer(0.0001),
+                                 initializer=tf.truncated_normal_initializer(stddev=0.01),
+                                 dtype=tf.float32)
+        with tf.name_scope('conv_1'):
+            conv_1 = tf.nn.conv2d(batch_x, filter, [1, 1, n_input + 2 * n_input * n_context, 1], padding='VALID' )
+            conv1 = tf.nn.relu(conv1)
+            pool1 = tf.nn.max_pool(conv1,
+                                   ksize=[1, 1, n_input, 1],
+                                   strides=[1, 1, n_input, 1],
+                                   padding='SAME')
+#            pool1 = tf.sequeeze(pool1)
+            pool1 = tf.nn.dropout(pool1, keep_dropout)
+        with tf.name_scope('fc'):
+            b_fc = self.variable_on_device('b6', [n_character], tf.random_normal_initializer(stddev=hyparam.b_stddev))
+            h_fc = self.variable_on_device('h6', 
+                                           [n_input + 2 * n_input * n_context, n_hidden_1, n_character],
+                                           tf.random_normal_initializer(stddev=hyparam.h_stddev))
+            layer_fc = tf.add(tf.matmul(, h6), b6)
+
+        layer_fc = tf.reshape(layer_6, [-1, batch_x_shape[0], n_character])
 
     def loss(self):      
         """              
