@@ -50,7 +50,7 @@ def lookahead_cnn(inputs, filter_shape, pool_size, hyparam, use_dropout=True):
 
     return lcnn_layer
 
-def BiRNN(inputs, seq_length, hyparam):
+def BiRNN(inputs, seq_length, hyparam, use_dropout=False):
     # forward
     lstm_fw_cell = tf.contrib.rnn.BasicLSTMCell(hyparam.n_cell_dim, forget_bias=1.0, state_is_tuple=True)
     lstm_fw_cell = tf.contrib.rnn.DropoutWrapper(lstm_fw_cell, input_keep_prob=hyparam.keep_dropout_rate)

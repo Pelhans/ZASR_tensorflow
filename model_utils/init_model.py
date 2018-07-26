@@ -147,19 +147,25 @@ class BiRNN(object):
         batch_x_shape = tf.shape(batch_x)
         batch_x = tf.transpose(batch_x, [1, 0, 2])
         batch_x = tf.expand_dims(batch_x, -1)
-        batch_x = tf.reshape(batch_x, [self.hyparam.batch_size, -1, n_input + 2 * n_input * n_context, 1] )
+        batch_x = tf.reshape(batch_x, 
+                            [self.hyparam.batch_size, -1, n_input + 2 * n_input * n_context, 1] ) # shape (batch_size, ?, 494, 1)
 
         with tf.name_scope('conv_1'):
-            conv_1 = network.conv2d(batch_x, [2,  n_input + 2 * n_input * n_context, 1,  n_input + 2 * n_input * n_context], n_input, self.hyparam, use_dropout=True)
+            conv_1 = network.conv2d(batch_x, 
+                                    [2,  n_input + 2 * n_input * n_context, 1,  n_input + 2 * n_input * n_context], 
+                                    n_input, self.hyparam, use_dropout=True) # shape (batch_size, ?, 1, 494)
+            conv_1 = tf.squeeze(conv_1, [2])
+
+            conv_1 = tf.reshape(conv_1, [self.hyparam.batch_size, -1, n_input + 2 * n_input * n_context]) # (batch_size * ?, 494)
 
         with tf.name_scope('birnn_1'):
             birnn_1 = network.BiRNN(conv_1, seq_length, self.hyparam)
-
+            print "birnn_1: ", birnn_1
         with tf.name_scope('birnn_2'):
             birnn_2 = network.BiRNN(birnn_1, seq_length, self.hyparam)
 
         with tf.name_scope('birnn_3'):
-            birnn_3 = network.BiRNN(birnn_2, seq_length, self.hyparam)
+            birnn_3 = network.BiRNN(birnn_2, seq_length, self.hyparam, use_dropout=True)
         
         with tf.name_scope('lcnn_1'):
             lcnn_1 = network.lookahead_cnn(birnn_3, [2, 2*self.hyparam.n_cell_dim, 1, 2*self.hyparam.n_cell_dim], 2, use_dropout=True)
