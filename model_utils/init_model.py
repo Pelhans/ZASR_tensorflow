@@ -101,7 +101,6 @@ class BiRNN(object):
             # print(batch_x_shape[1])
             # print(batch_x_shape[2])
             layer_3 = tf.reshape(layer_3, [-1, batch_x_shape[0], self.hyparam.n_hidden_3])
-           
             outputs, output_states = tf.nn.bidirectional_dynamic_rnn(cell_fw=lstm_fw_cell,
                                                                      cell_bw=lstm_bw_cell,
                                                                      inputs=layer_3,
@@ -131,6 +130,7 @@ class BiRNN(object):
         layer_6 = tf.reshape(layer_6, [-1, batch_x_shape[0], n_character])
  
         # Output shape: [n_steps, self.hyparam.batch_size, n_character]
+        print "layer_6: ", np.shape(layer_6), layer_6
         self.logits = layer_6
 
     def deepspeech2(self):
@@ -146,38 +146,49 @@ class BiRNN(object):
 
         batch_x_shape = tf.shape(batch_x)
         batch_x = tf.transpose(batch_x, [1, 0, 2])
+        print "batch_x: ", batch_x
         batch_x = tf.expand_dims(batch_x, -1)
         batch_x = tf.reshape(batch_x, 
                             [self.hyparam.batch_size, -1, n_input + 2 * n_input * n_context, 1] ) # shape (batch_size, ?, 494, 1)
 
-        with tf.name_scope('conv_1'):
+
+        with tf.variable_scope('conv_1'):
+            # usage: conv2d(batch_x, filter_shape, pool_size, hyparam, use_dropout=False)
             conv_1 = network.conv2d(batch_x, 
-                                    [2,  n_input + 2 * n_input * n_context, 1,  n_input + 2 * n_input * n_context], 
-                                    n_input, self.hyparam, use_dropout=True) # shape (batch_size, ?, 1, 494)
+                                    [1,  n_input + 2 * n_input * n_context, 1,  n_input + 2 * n_input * n_context], 
+                                    1, self.hyparam, use_dropout=True) # shape (batch_size, ?, 1, 494)
             conv_1 = tf.squeeze(conv_1, [2])
 
-            conv_1 = tf.reshape(conv_1, [self.hyparam.batch_size, -1, n_input + 2 * n_input * n_context]) # (batch_size * ?, 494)
+            conv_1 = tf.reshape(conv_1, [-1, self.hyparam.batch_size, n_input + 2 * n_input * n_context]) # (batch_size * ?, 494)
 
-        with tf.name_scope('birnn_1'):
-            birnn_1 = network.BiRNN(conv_1, seq_length, self.hyparam)
+        with tf.variable_scope('birnn_1'):
+            birnn_1 = network.BiRNN(conv_1, seq_length, self.hyparam )
             print "birnn_1: ", birnn_1
-        with tf.name_scope('birnn_2'):
-            birnn_2 = network.BiRNN(birnn_1, seq_length, self.hyparam)
+        with tf.variable_scope('birnn_2'):
+            birnn_2 = network.BiRNN(birnn_1, seq_length, self.hyparam )
 
-        with tf.name_scope('birnn_3'):
+        with tf.variable_scope('birnn_3'):
             birnn_3 = network.BiRNN(birnn_2, seq_length, self.hyparam, use_dropout=True)
         
-        with tf.name_scope('lcnn_1'):
-            lcnn_1 = network.lookahead_cnn(birnn_3, [2, 2*self.hyparam.n_cell_dim, 1, 2*self.hyparam.n_cell_dim], 2, use_dropout=True)
+        with tf.variable_scope('lcnn_1'):
+#            lcnn_1 = network.lookahead_cnn(birnn_3, [2, 2*self.hyparam.n_cell_dim, 1, 2*self.hyparam.n_cell_dim], 2, seq_length, self.hyparam, use_dropout=True)
+            birnn_3 = tf.reshape(birnn_3, [self.hyparam.batch_size, -1, 2*self.hyparam.n_cell_dim])
+            birnn_3 = tf.expand_dims(birnn_3, -1)
+            lcnn_1 = network.conv2d(birnn_3, [2, 2*self.hyparam.n_cell_dim, 1, 2*self.hyparam.n_cell_dim], 1, self.hyparam, use_dropout=True)
+            lcnn_1 = tf.squeeze(lcnn_1,[2])
+            lcnn_1 = tf.reshape(lcnn_1, [-1, 2 * self.hyparam.n_cell_dim])
 
-        with tf.name_scope('fc'):
+        with tf.variable_scope('fc'):
             b_fc = self.variable_on_device('b_fc', [n_character], tf.random_normal_initializer(stddev=self.hyparam.b_stddev))
             h_fc = self.variable_on_device('h_fc', 
-                                           [self.hyparam.n_cell_dim, n_character],
+                                           [2 * self.hyparam.n_cell_dim, n_character],
                                            tf.random_normal_initializer(stddev=self.hyparam.h_stddev))
-            layer_fc = tf.add(tf.matmul(lcnn_1, h6), b6)
-
-        self.logits = layer_6
+            layer_fc = tf.add(tf.matmul(lcnn_1, h_fc), b_fc)
+            # turn it to 3 dim, [n_steps, hyparam.batch_size, n_character]
+#            layer_fc = tf.reshape(layer_fc, [-1, batch_x_shape[0], n_character])
+            layer_fc = tf.reshape(layer_fc, [-1, self.hyparam.batch_size, n_character])
+        print "layer_fc: ", np.shape(layer_fc), layer_fc
+        self.logits = layer_fc
 
     def loss(self):      
         """              
@@ -186,6 +197,7 @@ class BiRNN(object):
         """              
         # 调用ctc loss   
         with tf.name_scope('loss'): #损失
+            print "self.text: ", self.text, "self.logits: ", self.logits, "self.seq_length: ", self.seq_length
             self.avg_loss = tf.reduce_mean(ctc_ops.ctc_loss(self.text, self.logits, self.seq_length))
             tf.summary.scalar('loss',self.avg_loss)
         # [optimizer]    

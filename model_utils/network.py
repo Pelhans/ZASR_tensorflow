@@ -21,11 +21,11 @@ def conv2d(batch_x, filter_shape, pool_size, hyparam, use_dropout=False):
         pool = tf.nn.dropout(pool, 0.5)
 
 
-    print "np.shape(pool): ", np.shape(pool)
+#    print "np.shape(pool): ", np.shape(pool)
 
     return pool
 
-def lookahead_cnn(inputs, filter_shape, pool_size, hyparam, use_dropout=True):
+def lookahead_cnn(inputs, filter_shape, pool_size, seq_length, hyparam, use_dropout=True):
     # combine 2 ahead inputs
 
     lcnn_inputs = []
@@ -34,13 +34,16 @@ def lookahead_cnn(inputs, filter_shape, pool_size, hyparam, use_dropout=True):
     b = tf.get_variable('b', shape=[hyparam.n_cell_dim], 
                        initializer=tf.random_normal_initializer(stddev=hyparam.b_stddev))
 
-    if len(inputs) < 3:
+   
+    if np.shape(inputs)[1] < 3:
         print "To short to user lookahead_cnn, the inputs should larger than 2"
         return inputs
     else:
-        lcnn_inputs = [[inputs[i], inpust[i+1], inputs[i+2]] for i in range(np.shape(inputs)[0]-2) ]
-        lcnn_inputs.append([inputs[-2], inputs[-1], np.zeros(np.shape(inputs[-1])).tolist()])
-        lcnn_inputs.append([inputs[-1]. np.zeros(np.shape(inputs[-1])).tolist(), np.zeros(np.shape(inputs[-1])).tolist()])
+        #  range only receive a interger, so I don't know how to iter it to add the outputs of time step t, t+1,t+2
+        for j in range(hyparam.batch_size):
+            lcnn_inputs = [[inputs[j][i], inputs[j][i+1], inputs[j][i+2]] for i in range(np.shape(inputs)[1]-2) ]
+            lcnn_inputs.append([inputs[j][-2], inputs[j][-1], np.zeros(np.shape(inputs[j][-1])).tolist()])
+            lcnn_inputs.append([inputs[j][-1]. np.zeros(np.shape(inputs[j][-1])).tolist(), np.zeros(np.shape(inputs[j][-1])).tolist()])
     
     lcnn_inputs = tf.add( tf.matmul(lcnn_inputs, h), b)
     
@@ -51,6 +54,7 @@ def lookahead_cnn(inputs, filter_shape, pool_size, hyparam, use_dropout=True):
     return lcnn_layer
 
 def BiRNN(inputs, seq_length, hyparam, use_dropout=False):
+
     # forward
     lstm_fw_cell = tf.contrib.rnn.BasicLSTMCell(hyparam.n_cell_dim, forget_bias=1.0, state_is_tuple=True)
     lstm_fw_cell = tf.contrib.rnn.DropoutWrapper(lstm_fw_cell, input_keep_prob=hyparam.keep_dropout_rate)
@@ -60,17 +64,20 @@ def BiRNN(inputs, seq_length, hyparam, use_dropout=False):
     lstm_bw_cell = tf.contrib.rnn.DropoutWrapper(lstm_bw_cell, input_keep_prob=hyparam.keep_dropout_rate)
 
 #    birnn = tf.reshape(layer_3, [-1, batch_x_shape[0], self.hyparam.n_hidden_3])
-
     outputs, output_states = tf.nn.bidirectional_dynamic_rnn(cell_fw=lstm_fw_cell,
                                                              cell_bw=lstm_bw_cell,
                                                              inputs=inputs,
                                                              dtype=tf.float32,
                                                              time_major=True,
                                                              sequence_length=seq_length)
+    
+
+#    print "shape of outputs: ", np.shape(outputs[0])
 
     outputs = tf.concat(outputs, 2)
-    # shape [n_steps*self.hyparam.batch_size, 2*self.hyparam.n_cell_dim]
-    outputs = tf.reshape(outputs, [-1, 2 * hyparam.n_cell_dim])
+#    print "shape of concat(outputs): ", outputs
+#    shape [n_steps, self.hyparam.batch_size, 2*self.hyparam.n_cell_dim]
+    outputs = tf.reshape(outputs, [-1, hyparam.batch_size, 2 * hyparam.n_cell_dim])
 
     if use_dropout :
         outputs = tf.nn.dropout(outputs, 0.5)
