@@ -69,11 +69,11 @@ class DeepSpeech2(object):
             conv_1 = tf.transpose(conv_1, [1, 0, 2])
 
         with tf.variable_scope('birnn_1'):
-            birnn_1 = network.BiRNN(conv_1, seq_length, self.hyparam )
+            birnn_1 = network.BiRNN(conv_1, seq_length, batch_x_shape, self.hyparam )
         with tf.variable_scope('birnn_2'):
-            birnn_2 = network.BiRNN(birnn_1, seq_length, self.hyparam )
+            birnn_2 = network.BiRNN(birnn_1, seq_length, batch_x_shape, self.hyparam )
         with tf.variable_scope('birnn_3'):
-            birnn_3 = network.BiRNN(birnn_2, seq_length, self.hyparam, use_dropout=True)
+            birnn_3 = network.BiRNN(birnn_2, seq_length, batch_x_shape, self.hyparam, use_dropout=True)
             birnn_3 = tf.reshape(birnn_3, [batch_x_shape[0], -1, 2*self.hyparam.n_cell_dim])
             birnn_3 = tf.expand_dims(birnn_3, -1)
         with tf.variable_scope('lcnn_1'):
@@ -95,6 +95,7 @@ class DeepSpeech2(object):
             layer_fc = tf.add(tf.matmul(lcnn_1, h_fc), b_fc)
             # turn it to 3 dim, [n_steps, hyparam.batch_size, n_character]
             layer_fc = tf.reshape(layer_fc, [-1, batch_x_shape[0], n_character])
+
         self.logits = layer_fc
 
     def loss(self):      
@@ -104,7 +105,6 @@ class DeepSpeech2(object):
         """              
         # 调用ctc loss   
         with tf.name_scope('loss'): #损失
-            print "self.text: ", self.text, "self.logits: ", self.logits, "self.seq_length: ", self.seq_length
             self.avg_loss = tf.reduce_mean(ctc_ops.ctc_loss(self.text, self.logits, self.seq_length))
             tf.summary.scalar('loss',self.avg_loss)
         # [optimizer]    
@@ -138,6 +138,7 @@ class DeepSpeech2(object):
         return feed_dict
                     
     def init_session(self):
+        print "AM I here?"
         self.savedir = self.conf.get("FILE_DATA").savedir
         self.saver = tf.train.Saver(max_to_keep=1)  # 生成saver
         # create the session
@@ -256,9 +257,6 @@ class DeepSpeech2(object):
         self.sess.close()
          
     def test_target_wav_file(self, wav_files, txt_labels):
-        print '读入语音文件: ', wav_files[0]
-        print '开始识别语音数据......'
-         
         self.audio_features, self.audio_features_len, text_vector, text_vector_len = utils.get_audio_mfcc_features(
             None,
             wav_files,
@@ -270,14 +268,13 @@ class DeepSpeech2(object):
         d, train_ler = self.sess.run([self.decoded[0], self.label_err], feed_dict=self.get_feed_dict(dropout=1.0))
         dense_decoded = tf.sparse_tensor_to_dense(d, default_value=-1).eval(session=self.sess)
         decoded_str = utils.trans_array_to_text_ch(dense_decoded[0], self.words)
-        print '语音原始文本: ', txt_labels[0]
-        print '识别出来的文本:  ', decoded_str
+        print '识别结果:  ', decoded_str
+        return decoded_str.encode('utf-8')
          
-        self.sess.close()
+#        self.sess.close()
          
     def build_train(self):
         self.add_placeholders()
-#        self.bi_rnn_layer()
         self.deepspeech2()
         self.loss()
         self.init_session()
@@ -286,20 +283,26 @@ class DeepSpeech2(object):
 
     def build_test(self):
         self.add_placeholders()    
-        self.bi_rnn_layer()
+        self.deepspeech2()
         self.loss() 
         self.init_session()
         self.test() 
                     
-    def build_target_wav_file_test(self, wav_files, txt_labels):
+    def init_online_model(self):
         self.add_placeholders()
-        self.bi_rnn_layer()
+        self.deepspeech2()
         self.loss() 
         self.init_session()
-        self.test_target_wav_file(wav_files, txt_labels)
+
+    def predict(self, wav_files, txt_labels):
+        transcript = self.test_target_wav_file(wav_files, txt_labels)
+        return transcript
+    
+    def close_onlie(self):
+        self.sess.close()
                     
     def variable_on_device(self, name, shape, initializer):
-        with tf.device('/gpu:0'):
-            var = tf.get_variable(name=name, shape=shape, initializer=initializer)
+#        with tf.device('/gpu:0'):
+        var = tf.get_variable(name=name, shape=shape, initializer=initializer)
         return var  
 

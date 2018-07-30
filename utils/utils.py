@@ -140,7 +140,6 @@ def get_audio_mfcc_features(txt_files, wav_files, n_input, n_context, word_num_m
     text_vector_len = []
     if txt_files != None:
         txt_labels = txt_files
-
     for txt_obj, wav_file in zip(txt_labels, wav_files):
         # 载入音频数据并转化为特征值
         audio_data = audiofile_to_input_vector(wav_file, n_input, n_context)

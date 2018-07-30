@@ -50,7 +50,7 @@ def lookahead_cnn(inputs, filter_shape, pool_size, seq_length, hyparam, use_drop
 
     return lcnn_layer
 
-def BiRNN(inputs, seq_length, hyparam, use_dropout=False):
+def BiRNN(inputs, seq_length, batch_x_shape, hyparam, use_dropout=False):
 
     # forward
     lstm_fw_cell = tf.contrib.rnn.BasicLSTMCell(hyparam.n_cell_dim, forget_bias=1.0, state_is_tuple=True)
@@ -70,7 +70,7 @@ def BiRNN(inputs, seq_length, hyparam, use_dropout=False):
 
 
     outputs = tf.concat(outputs, 2)
-    outputs = tf.reshape(outputs, [-1, hyparam.batch_size, 2 * hyparam.n_cell_dim])
+    outputs = tf.reshape(outputs, [-1,batch_x_shape[0] , 2 * hyparam.n_cell_dim])
 
     if use_dropout :
         outputs = tf.nn.dropout(outputs, 0.5)
