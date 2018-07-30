@@ -11,8 +11,8 @@
 
 ## TODO
 * ~~根据论文修改模型结构~~    
-* 实现 server/ client的调用  
-* 使用CTC对输出进行解码  
+* ~~实现 server/ client的调用~~  
+* ~~使用CTC对输出进行解码~~  
 * 输入改为语谱图 
 * 全局使用 Batch Normalization
 
