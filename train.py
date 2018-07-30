@@ -17,6 +17,6 @@ wav_files, text_labels, _ = process_manifest.get_path_trans()
 words_size, words, word_num_map = process_manifest.create_dict("data/aishell/vocab.txt")
 
 
-bi_rnn = init_model.BiRNN(wav_files, text_labels, words_size, words, word_num_map)
+bi_rnn = init_model.DeepSpeech2(wav_files, text_labels, words_size, words, word_num_map)
 
 bi_rnn.build_train()

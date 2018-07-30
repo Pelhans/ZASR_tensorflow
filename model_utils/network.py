@@ -30,7 +30,7 @@ def lookahead_cnn(inputs, filter_shape, pool_size, seq_length, hyparam, use_drop
                         initializer=tf.random_normal_initializer(stddev=hyparam.h_stddev))
     b = tf.get_variable('b', shape=[hyparam.n_cell_dim], 
                        initializer=tf.random_normal_initializer(stddev=hyparam.b_stddev))
-
+    print "seq_length: ", seq_length
    
     if np.shape(inputs)[1] < 3:
         print "To short to user lookahead_cnn, the inputs should larger than 2"
