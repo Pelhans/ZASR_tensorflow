@@ -254,7 +254,7 @@ class DeepSpeech2(object):
                print '语音原始文本: ', orig
                print '识别出来的文本:  ', decoded_str
                break               
-        self.sess.close()
+#        self.sess.close()
          
     def test_target_wav_file(self, wav_files, txt_labels):
         self.audio_features, self.audio_features_len, text_vector, text_vector_len = utils.get_audio_mfcc_features(

@@ -105,7 +105,7 @@ class AsrRequestHandler(SocketServer.BaseRequestHandler):
               (finish_time - start_time, transcript))
         if transcript == None:
             transcript = ""
-        self.request.sendall(transcript.encode('utf-8'))
+        self.request.sendall(transcript)
 
     def _write_to_file(self, data):
         # prepare save dir and filename
