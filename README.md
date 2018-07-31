@@ -2,8 +2,7 @@
 ## 简介
 基于 tensorflow 的中文语音识别框架, 模型结构参考 百度[Deepspeech2](http://proceedings.mlr.press/v48/amodei16.pdf) 的论文,训练语料采用Aishell 170 小时数据. 模型结构如下图所示:
 
-<div align=center>![DeepSpeech2 结构](img/arc.png)
-
+![](img/arc.png)
 
 ## 运行
 
