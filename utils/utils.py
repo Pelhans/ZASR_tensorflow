@@ -10,6 +10,7 @@ import scipy.io.wavfile as wav
 from python_speech_features import mfcc
 from data_utils.audio_featurizer import AudioFeaturizer
 from data_utils.speech import SpeechSegment
+from data_utils.normalizer import FeatureNormalizer
 from conf import config
 
 '''
@@ -127,7 +128,7 @@ def next_batch(start_idx=0,
     return start_idx, audio_features, audio_features_len, sparse_labels, wav_files
 
 
-def get_audio_mfcc_features(txt_files, wav_files, n_input, n_context, word_num_map, txt_labels=None, specgram_type='mfcc'):
+def get_audio_mfcc_features(txt_files, wav_files, n_input, n_context, word_num_map, txt_labels=None, specgram_type='mfcc', mean_std_filepath='data/aishell/mean_std.npz'):
     """
     提取音频数据的MFCC特征
     :param txt_files:
@@ -145,13 +146,15 @@ def get_audio_mfcc_features(txt_files, wav_files, n_input, n_context, word_num_m
     if txt_files != None:
         txt_labels = txt_files
     get_feature = AudioFeaturizer(specgram_type)
+    normalizer = FeatureNormalizer(mean_std_filepath)
     for txt_obj, wav_file in zip(txt_labels, wav_files):
         # 载入音频数据并转化为特征值
         if specgram_type == 'mfcc':
             audio_data = audiofile_to_input_vector(wav_file, n_input, n_context) # get mfcc feature ( ???, 741 )
         elif specgram_type == 'linear':
             speech_segment = SpeechSegment.from_file(wav_file, "")
-            audio_data = get_feature.featurize(speech_segment)
+            specgram = get_feature.featurize(speech_segment)
+            audio_data = normalizer.apply(specgram)
             audio_data = np.transpose(audio_data) # get linear specgram feature, (?, 161)
         audio_data = audio_data.astype('float32')
 
@@ -274,7 +277,7 @@ def audiofile_to_input_vector(audio_filename, n_input, n_context):
 #    orig_inputs = mfcc(audio, samplerate=fs, numcep=n_input)
 #    orig_inputs = orig_inputs[::2]  # (***/2, 26) 每隔一行进行一次取样
 
-    train_inputs = np.zeros((orig_inputs.shape[0], n_input + 2 * n_input * n_context)) #(***/2, 494)
+    train_inputs = np.zeros((orig_inputs.shape[0], n_input + 2 * n_input * n_context)) #(***/2, 195)
     empty_mfcc = np.zeros((n_input))
 
     # 准备输入数据，数据由三部分安顺序拼接而成，分为当前样本的前9个序列样本，当前样本序列，后9个序列样本
