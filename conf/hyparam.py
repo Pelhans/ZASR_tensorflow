@@ -23,4 +23,5 @@ class Config():
         self.n_input = 39  # 计算MFCC的个数
         self.n_context = 2  # 对于每个时间点，要包含上下文样本的个数
         self.specgram_type = 'linear'
-        self.batch_size = 8 
+        self.batch_size = 8
+        self.use_bn = True

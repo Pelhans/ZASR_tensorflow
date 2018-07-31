@@ -4,7 +4,17 @@
 import tensorflow as tf
 import numpy as np
 
+scale = tf.Variable(tf.ones([1]))
+offset = tf.Variable(tf.zeros([1]))
+variance_epsilon = 0.001
+
 def conv2d(batch_x, filter_shape, strides, pool_size, hyparam, use_dropout=False):
+    if hyparam.use_bn:
+        batch_mean, batch_var = tf.nn.moments(batch_x, [0, 1, 2])
+        print "batch_mean: ", batch_mean, "batch_var: ", batch_var
+        print "batch_x: ", batch_x
+        batch_x = tf.nn.batch_normalization(batch_x, batch_mean, batch_var, offset, scale, variance_epsilon)
+        print "batch_x: ", batch_x
     filter = tf.get_variable("filter",
                             shape=filter_shape,
                             regularizer=tf.contrib.layers.l2_regularizer(0.0001),
@@ -30,8 +40,6 @@ def lookahead_cnn(inputs, filter_shape, pool_size, seq_length, hyparam, use_drop
                         initializer=tf.random_normal_initializer(stddev=hyparam.h_stddev))
     b = tf.get_variable('b', shape=[hyparam.n_cell_dim], 
                        initializer=tf.random_normal_initializer(stddev=hyparam.b_stddev))
-    print "seq_length: ", seq_length
-   
     if np.shape(inputs)[1] < 3:
         print "To short to user lookahead_cnn, the inputs should larger than 2"
         return inputs
@@ -51,6 +59,10 @@ def lookahead_cnn(inputs, filter_shape, pool_size, seq_length, hyparam, use_drop
     return lcnn_layer
 
 def BiRNN(inputs, seq_length, batch_x_shape, hyparam, use_dropout=False):
+    
+    if hyparam.use_bn:
+        batch_mean, batch_var = tf.nn.moments(inputs, [0, 1, 2])
+        batch_x = tf.nn.batch_normalization(inputs, batch_mean, batch_var, offset, scale, variance_epsilon)
 
     # forward
     lstm_fw_cell = tf.contrib.rnn.BasicLSTMCell(hyparam.n_cell_dim, forget_bias=1.0, state_is_tuple=True)
