@@ -115,12 +115,18 @@ class DeepSpeech2(object):
                          
         with tf.name_scope("decode"):
             self.decoded, log_prob = ctc_ops.ctc_beam_search_decoder(self.logits, self.seq_length, merge_repeated=False)
-                         
+
+        with tf.name_scope("ctc_beam_search_decode"):
+            self.prob = tf.nn.softmax(self.logits, dim=0)
+            self.prob = tf.transpose(self.prob, [1, 0, 2]) # keep the same dim with decoder {batch_size, time_step, n_character}
+            print "self.prob: ", np.shape(self.prob), self.prob
+
         with tf.name_scope("accuracy"):
             self.distance = tf.edit_distance(tf.cast(self.decoded[0], tf.int32), self.text)
             # 计算label error rate (accuracy)
             self.label_err = tf.reduce_mean(self.distance, name='label_error_rate')
             tf.summary.scalar('accuracy', self.label_err)
+
 
     def get_feed_dict(self, dropout=None):
         """         
