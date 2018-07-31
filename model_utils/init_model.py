@@ -30,11 +30,14 @@ class DeepSpeech2(object):
         self.words_size = words_size
         self.words = words
         self.word_num_map = word_num_map
+        # mfcc 特征向量39 * 2 * 2 + 39 = 195维, linear specgram 161 维(8000-0)/50 + 1
+        self.n_dim = self.hyparam.n_input + 2 * self.hyparam.n_input * self.hyparam.n_context if self.hyparam.specgram_type == 'mfcc' else 161
+        print "self.n_dim: ", self.n_dim
 
     def add_placeholders(self):
         # input tensor for log filter or MFCC features
         self.input_tensor = tf.placeholder( tf.float32,
-                                          [None, None, self.hyparam.n_input + (2 * self.hyparam.n_input * self.hyparam.n_context)],
+                                          [None, None, self.n_dim],
                                           name='input')
         self.text = tf.sparse_placeholder(tf.int32, name='text')
         self.seq_length = tf.placeholder(tf.int32, [None], name='seq_length')
@@ -55,14 +58,13 @@ class DeepSpeech2(object):
         batch_x = tf.transpose(batch_x, [1, 0, 2])
         batch_x = tf.expand_dims(batch_x, -1)
         batch_x = tf.reshape(batch_x, 
-                            [batch_x_shape[0], -1, n_input + 2 * n_input * n_context, 1] ) # shape (batch_size, ?, 494, 1)
-
+                            [batch_x_shape[0], -1, self.n_dim, 1] ) # shape (batch_size, ?, n_dim, 1)
 
         with tf.variable_scope('conv_1'):
             # usage: conv2d(batch_x, filter_shape, strides, pool_size, hyparam, use_dropout=False)
             # Output is [batch_size, height, width. out_channel]
             conv_1 = network.conv2d(batch_x, 
-                                    [1,  n_input, 1,  1], # filter: [height, width, in_channel, out_channel]
+                                    [1,  n_input / 3, 1,  1], # filter: [height, width, in_channel, out_channel]
                                     [1, 1, n_input/5 , 1], # strides: [1, height, width, 1]
                                     2, self.hyparam, use_dropout=False) # shape (8, ?, 19, 1)
             conv_1 = tf.squeeze(conv_1, [-1])
@@ -84,7 +86,7 @@ class DeepSpeech2(object):
                                     [1, 1, n_input/5, 1],
                                     2, self.hyparam, use_dropout=True)
             lcnn_1 = tf.squeeze(lcnn_1,[-1])
-            width_lcnn1 = 10 # use to compute lcnn_1[-1], computed by pool_size * n_input / 5
+            width_lcnn1 = 14 # use to compute lcnn_1[-1], computed by pool_size * n_input / 5
             lcnn_1 = tf.reshape(lcnn_1, [-1, int(math.ceil(2*self.hyparam.n_cell_dim/width_lcnn1))])
 
         with tf.variable_scope('fc'):
@@ -194,7 +196,8 @@ class DeepSpeech2(object):
                     self.hyparam.n_context,
                     self.text_labels,
                     self.wav_files,
-                    self.word_num_map)
+                    self.word_num_map,
+                    specgram_type=self.hyparam.specgram_type)
  
                 # 计算 avg_loss optimizer ;
                 batch_cost, _ = self.sess.run([self.avg_loss, self.optimizer], feed_dict=self.get_feed_dict())
@@ -239,7 +242,8 @@ class DeepSpeech2(object):
                self.hyparam.n_context,          
                self.text_labels,   
                self.wav_files,     
-               self.word_num_map)  
+               self.word_num_map,
+               specgram_type=self.hyparam.specgram_type)  
                                    
            print '读入语音文件: ', wav_files[0]
            print '开始识别语音数据......'
@@ -263,7 +267,8 @@ class DeepSpeech2(object):
             self.hyparam.n_input,
             self.hyparam.n_context,
             self.word_num_map,
-            txt_labels)
+            txt_labels,
+            specgram_type=self.hyparam.specgram_type)
         self.sparse_labels = utils.sparse_tuple_from(text_vector)
         d, train_ler = self.sess.run([self.decoded[0], self.label_err], feed_dict=self.get_feed_dict(dropout=1.0))
         dense_decoded = tf.sparse_tensor_to_dense(d, default_value=-1).eval(session=self.sess)

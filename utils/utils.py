@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import division
 
 import os
 from collections import Counter
@@ -6,7 +8,8 @@ from collections import Counter
 import numpy as np
 import scipy.io.wavfile as wav
 from python_speech_features import mfcc
-
+from data_utils.audio_featurizer import AudioFeaturizer
+from data_utils.speech import SpeechSegment
 from conf import config
 
 '''
@@ -19,7 +22,6 @@ def get_wavs_lables():
                                                 conf.get("FILE_DATA").label_file)
     print(wav_files[0], text_labels[0])
     # wav/train/A11/A11_0.WAV -> 绿 是 阳春 烟 景 大块 文章 的 底色 四月 的 林 峦 更是 绿 得 鲜活 秀媚 诗意 盎然
-    print("wav:", len(wav_files), "label", len(text_labels))
 
     return wav_files, text_labels
 
@@ -70,7 +72,6 @@ def create_dict(text_labels):
     """
     all_words = []
     for label in text_labels:
-        # print(label)
         all_words += [word for word in label]
     counter = Counter(all_words)
     words = sorted(counter)
@@ -87,7 +88,8 @@ def next_batch(start_idx=0,
                n_context=None,
                labels=None,
                wav_files=None,
-               word_num_map=None):
+               word_num_map=None,
+               specgram_type='mfcc'):
     """
     按批次获取样本
     :param start_idx:
@@ -97,6 +99,7 @@ def next_batch(start_idx=0,
     :param labels:
     :param wav_files:
     :param word_num_map:
+    :param specgram_type
     :return:
     """
     filesize = len(labels)
@@ -109,7 +112,8 @@ def next_batch(start_idx=0,
                                                                                                n_input,
                                                                                                n_context,
                                                                                                word_num_map,
-                                                                                               txt_labels)
+                                                                                               txt_labels,
+                                                                                               specgram_type)
 
     start_idx += batch_size
     # 验证 start_idx
@@ -123,7 +127,7 @@ def next_batch(start_idx=0,
     return start_idx, audio_features, audio_features_len, sparse_labels, wav_files
 
 
-def get_audio_mfcc_features(txt_files, wav_files, n_input, n_context, word_num_map, txt_labels=None):
+def get_audio_mfcc_features(txt_files, wav_files, n_input, n_context, word_num_map, txt_labels=None, specgram_type='mfcc'):
     """
     提取音频数据的MFCC特征
     :param txt_files:
@@ -140,9 +144,15 @@ def get_audio_mfcc_features(txt_files, wav_files, n_input, n_context, word_num_m
     text_vector_len = []
     if txt_files != None:
         txt_labels = txt_files
+    get_feature = AudioFeaturizer(specgram_type)
     for txt_obj, wav_file in zip(txt_labels, wav_files):
         # 载入音频数据并转化为特征值
-        audio_data = audiofile_to_input_vector(wav_file, n_input, n_context)
+        if specgram_type == 'mfcc':
+            audio_data = audiofile_to_input_vector(wav_file, n_input, n_context) # get mfcc feature ( ???, 741 )
+        elif specgram_type == 'linear':
+            speech_segment = SpeechSegment.from_file(wav_file, "")
+            audio_data = get_feature.featurize(speech_segment)
+            audio_data = np.transpose(audio_data) # get linear specgram feature, (?, 161)
         audio_data = audio_data.astype('float32')
 
         audio_features.append(audio_data)
@@ -239,7 +249,6 @@ def trans_tuple_to_texts_ch(tuple, words):
 
 def trans_array_to_text_ch(value, words):
     results = ''
-    #print('trans_array_to_text_ch len:', len(value))
     for i in range(len(value)):
         results += words[value[i]]  # chr(value[i] + FIRST_INDEX)
     return results.replace('`', ' ')
@@ -257,8 +266,13 @@ def audiofile_to_input_vector(audio_filename, n_input, n_context):
     fs, audio = wav.read(audio_filename)
 
     # 获取mfcc数值
-    orig_inputs = mfcc(audio, samplerate=fs, numcep=n_input)
-    orig_inputs = orig_inputs[::2]  # (***/2, 26) 每隔一行进行一次取样
+    get_feature = AudioFeaturizer("mfcc")
+    speech_segment = SpeechSegment.from_file(audio_filename, "")
+    orig_inputs = get_feature.featurize(speech_segment) # (39, 840)
+    orig_inputs = np.transpose(orig_inputs) # (599, 39)
+
+#    orig_inputs = mfcc(audio, samplerate=fs, numcep=n_input)
+#    orig_inputs = orig_inputs[::2]  # (***/2, 26) 每隔一行进行一次取样
 
     train_inputs = np.zeros((orig_inputs.shape[0], n_input + 2 * n_input * n_context)) #(***/2, 494)
     empty_mfcc = np.zeros((n_input))
@@ -271,7 +285,7 @@ def audiofile_to_input_vector(audio_filename, n_input, n_context):
         # 前9个补0，mfcc features
         need_empty_past = max(0, (context_past_min - time_slice))
         empty_source_past = list(empty_mfcc for empty_slots in range(need_empty_past))
-        data_source_past = orig_inputs[max(0, time_slice - n_context):time_slice]
+        data_source_past = orig_inputs[ max(0, time_slice - n_context):time_slice]
 
         # 后9个补0，mfcc features
         need_empty_future = max(0, (time_slice - context_future_max))
@@ -288,7 +302,7 @@ def audiofile_to_input_vector(audio_filename, n_input, n_context):
         else:
             future = data_source_future
 
-        past = np.reshape(past, n_context * n_input)
+        past = np.reshape(past, n_context * 39)
         now = orig_inputs[time_slice]
         future = np.reshape(future, n_context * n_input)
         train_inputs[time_slice] = np.concatenate((past, now, future)) # 对于当前采样，包含过去9*26 + 当前26 + 未来 26*9 = 494
