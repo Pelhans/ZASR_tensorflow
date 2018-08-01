@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding=utf-8
-
+from __future__ import absolute_import
 from __future__ import division
 
 import time
@@ -12,6 +12,7 @@ from tensorflow.python.ops import ctc_ops
 from utils import utils
 from conf import hyparam, config
 from model_utils import network
+from utils.decoder.model import LM_decoder
 
 class DeepSpeech2(object):
     '''
@@ -119,7 +120,7 @@ class DeepSpeech2(object):
         with tf.name_scope("ctc_beam_search_decode"):
             self.prob = tf.nn.softmax(self.logits, dim=0)
             self.prob = tf.transpose(self.prob, [1, 0, 2]) # keep the same dim with decoder {batch_size, time_step, n_character}
-            print "self.prob: ", np.shape(self.prob), self.prob
+            self.decoder = LM_decoder(self.hyparam.alpha, self.hyparam.beta, self.hyparam.lang_model_path, self.words)
 
         with tf.name_scope("accuracy"):
             self.distance = tf.edit_distance(tf.cast(self.decoded[0], tf.int32), self.text)
@@ -169,6 +170,24 @@ class DeepSpeech2(object):
     def add_summary(self):
         self.merged = tf.summary.merge_all()
         self.writer = tf.summary.FileWriter(self.conf.get("FILE_DATA").tensorboardfile, self.sess.graph)
+
+    def init_decode(self):
+        self.prob = tf.nn.softmax(self.logits, dim=0)
+        self.prob = tf.transpose(self.prob, [1, 0, 2]) # keep the same dim with decoder {batch_size, time_step, n_character}
+        self.decoder = LM_decoder(self.hyparam.alpha, self.hyparam.beta, self.hyparam.lang_model_path, self.words)
+
+    def lm_decode(self, probality):
+        result_transcripts = self.decoder.decode_batch_beam_search(
+                probs_split=probality,
+                beam_alpha=self.hyparam.alpha,
+                beam_beta=self.hyparam.beta,
+                beam_size=self.hyparam.beam_size,
+                cutoff_prob=self.hyparam.cutoff_prob,
+                cutoff_top_n=self.hyparam.cutoff_top_n,
+                vocab_list=self.words,
+                num_processes=self.hyparam.num_proc_bsearch)
+        results = "" if result_transcripts == None else result_transcripts
+        return  results[0].encode('utf-8')
                           
     def train(self):      
         epochs = 120      
@@ -241,7 +260,7 @@ class DeepSpeech2(object):
         next_idx = 20              
                                    
         for index in range(10):    
-           next_idx, self.audio_features, self.audio_features_len, self.sparse_labels, wav_files = utils.next_batch(
+            next_idx, self.audio_features, self.audio_features_len, self.sparse_labels, wav_files = utils.next_batch(
                next_idx,           
                1,                  
                self.hyparam.n_input,            
@@ -249,24 +268,30 @@ class DeepSpeech2(object):
                self.text_labels,   
                self.wav_files,     
                self.word_num_map,
-               specgram_type=self.hyparam.specgram_type)  
+               specgram_type=self.hyparam.specgram_type) 
                                    
-           print '读入语音文件: ', wav_files[0]
-           print '开始识别语音数据......'
+            print '读入语音文件: ', wav_files[0]
+            print '开始识别语音数据......'
                                    
-           d, train_ler = self.sess.run([self.decoded[0], self.label_err], feed_dict=self.get_feed_dict(dropout=1.0))
-           dense_decoded = tf.sparse_tensor_to_dense(d, default_value=-1).eval(session=self.sess)
-           dense_labels = utils.trans_tuple_to_texts_ch(self.sparse_labels, self.words)
-                                   
-           for orig, decoded_array in zip(dense_labels, dense_decoded):
-               # 转成string        
-               decoded_str = utils.trans_array_to_text_ch(decoded_array, self.words)
-               print '语音原始文本: ', orig
-               print '识别出来的文本:  ', decoded_str
-               break               
+            prob, d, train_ler = self.sess.run([self.prob, self.decoded[0], self.label_err], feed_dict=self.get_feed_dict(dropout=1.0))
+            dense_labels = utils.trans_tuple_to_texts_ch(self.sparse_labels, self.words)
+            
+            if self.hyparam.use_lm_decoder:
+                result_transcripts = self.lm_decode(prob)
+                print "Orinal text: ", dense_labels[0]
+                print "Transcript: ", result_transcripts
+            else:
+                dense_decoded = tf.sparse_tensor_to_dense(d, default_value=-1).eval(session=self.sess)
+                print "dense_decoded", np.shape(dense_decoded), dense_decoded
+                for orig, decoded_array in zip(dense_labels, dense_decoded):
+                # 转成string        
+                    decoded_str = utils.trans_array_to_text_ch(decoded_array, self.words)
+                    print "Orinal text:", orig
+                    print "Transcript: ", decoded_str
+                    break               
 #        self.sess.close()
          
-    def test_target_wav_file(self, wav_files, txt_labels):
+    def recon_wav_file(self, wav_files, txt_labels):
         self.audio_features, self.audio_features_len, text_vector, text_vector_len = utils.get_audio_mfcc_features(
             None,
             wav_files,
@@ -276,11 +301,14 @@ class DeepSpeech2(object):
             txt_labels,
             specgram_type=self.hyparam.specgram_type)
         self.sparse_labels = utils.sparse_tuple_from(text_vector)
-        d, train_ler = self.sess.run([self.decoded[0], self.label_err], feed_dict=self.get_feed_dict(dropout=1.0))
-        dense_decoded = tf.sparse_tensor_to_dense(d, default_value=-1).eval(session=self.sess)
-        decoded_str = utils.trans_array_to_text_ch(dense_decoded[0], self.words)
-        print '识别结果:  ', decoded_str
-        return decoded_str.encode('utf-8')
+        prob, d, train_ler = self.sess.run([self.prob, self.decoded[0], self.label_err], feed_dict=self.get_feed_dict(dropout=1.0))
+        if self.hyparam.use_lm_decoder:
+            result_transcripts = self.lm_decode(prob)
+        else:
+            dense_decoded = tf.sparse_tensor_to_dense(d, default_value=-1).eval(session=self.sess)
+            result_transcripts = utils.trans_array_to_text_ch(dense_decoded[0], self.words).encode('utf-8')
+#        print "Transcript: ", result_transcripts
+        return result_transcripts
          
 #        self.sess.close()
          
@@ -297,6 +325,7 @@ class DeepSpeech2(object):
         self.deepspeech2()
         self.loss() 
         self.init_session()
+        self.init_decode()
         self.test() 
                     
     def init_online_model(self):
@@ -306,7 +335,7 @@ class DeepSpeech2(object):
         self.init_session()
 
     def predict(self, wav_files, txt_labels):
-        transcript = self.test_target_wav_file(wav_files, txt_labels)
+        transcript = self.recon_wav_file(wav_files, txt_labels)
         return transcript
     
     def close_onlie(self):

@@ -27,7 +27,7 @@ def create_dict(vocab):
     '''
 
     total_words = open(vocab, 'r').readlines()
-    total_words = [word.strip().decode('utf-8') for word in total_words]
+    total_words = [word.strip() for word in total_words]
     counter = Counter(total_words)
     words = sorted(counter)
     word_size = len(words)

@@ -11,12 +11,12 @@ import gzip
 import copy
 import numpy as np
 import inspect
-from decoders.swig_wrapper import Scorer
-from decoders.swig_wrapper import ctc_greedy_decoder
-from decoders.swig_wrapper import ctc_beam_search_decoder_batch
+from utils.decoder.swig_wrapper import Scorer
+from utils.decoder.swig_wrapper import ctc_greedy_decoder
+from utils.decoder.swig_wrapper import ctc_beam_search_decoder_batch
 
 
-class lm_decoder(object):
+class LM_decoder(object):
 
     def __init__(self, beam_alpha, beam_beta, language_model_path,
                         vocab_list):
@@ -83,8 +83,7 @@ class lm_decoder(object):
         if self._ext_scorer != None:
             self._ext_scorer.reset_params(beam_alpha, beam_beta)
         # beam search decode
-        print ("probs_split: ", np.shape(probs_split), probs_split)
-        num_processes = min(num_processes, len(probs_split))
+        num_processes = min(num_processes, np.shape(probs_split)[0])
         beam_search_results = ctc_beam_search_decoder_batch(
             probs_split=probs_split,
             vocabulary=vocab_list,

@@ -25,3 +25,13 @@ class Config():
         self.specgram_type = 'linear'
         self.batch_size = 8
         self.use_bn = True
+
+        # decoder
+        self.use_lm_decoder = True
+        self.alpha = 1.2
+        self.beta = 2.5
+        self.cutoff_prob = 0.99
+        self.cutoff_top_n = 10
+        self.num_proc_bsearch = 8
+        self.beam_size = 400
+        self.lang_model_path = './models/lm/zh_giga.no_cna_cmn.prune01244.klm'

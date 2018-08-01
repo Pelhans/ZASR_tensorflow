@@ -211,7 +211,7 @@ def trans_text_ch_to_vector(txt_file, word_num_map, txt_label=None):
     """
     words_size = len(word_num_map)
 
-    to_num = lambda word: word_num_map.get(word, words_size)
+    to_num = lambda word: word_num_map.get(word.encode('utf-8'), words_size)
 
     if txt_file != None:
         txt_label = get_ch_lable(txt_file)
