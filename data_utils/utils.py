@@ -11,7 +11,7 @@ from python_speech_features import mfcc
 from data_utils.audio_featurizer import AudioFeaturizer
 from data_utils.speech import SpeechSegment
 from data_utils.normalizer import FeatureNormalizer
-from conf import config
+from conf.hyparam import Config
 
 '''
 To help creat train set and get batch from data
@@ -19,11 +19,10 @@ To help creat train set and get batch from data
 
 def get_wavs_lables():
     conf = config.Config()
-    wav_files, text_labels = do_get_wavs_lables(conf.get("FILE_DATA").wav_path,
-                                                conf.get("FILE_DATA").label_file)
+    print "Config.wav_path: ", Config.wav_path
+    wav_files, text_labels = do_get_wavs_lables(Config.wav_path,
+                                                Config.label_file)
     print(wav_files[0], text_labels[0])
-    # wav/train/A11/A11_0.WAV -> 绿 是 阳春 烟 景 大块 文章 的 底色 四月 的 林 峦 更是 绿 得 鲜活 秀媚 诗意 盎然
-
     return wav_files, text_labels
 
 

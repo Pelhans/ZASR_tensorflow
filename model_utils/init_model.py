@@ -9,8 +9,8 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.ops import ctc_ops
 
-from utils import utils
-from conf import hyparam, config
+from data_utils import utils
+from conf.hyparam import Config
 from model_utils import network
 from utils.decoder.model import LM_decoder
 
@@ -24,8 +24,7 @@ class DeepSpeech2(object):
     mZword_num_map: a map dict from word to num
     '''
     def __init__(self, wav_files, text_labels, words_size, words, word_num_map):
-        self.hyparam = hyparam.Config()
-        self.conf = config.Config()
+        self.hyparam = Config()
         self.wav_files = wav_files
         self.text_labels = text_labels
         self.words_size = words_size
@@ -33,7 +32,6 @@ class DeepSpeech2(object):
         self.word_num_map = word_num_map
         # mfcc 特征向量39 * 2 * 2 + 39 = 195维, linear specgram 161 维(8000-0)/50 + 1
         self.n_dim = self.hyparam.n_input + 2 * self.hyparam.n_input * self.hyparam.n_context if self.hyparam.specgram_type == 'mfcc' else 161
-        print "self.n_dim: ", self.n_dim
 
     def add_placeholders(self):
         # input tensor for log filter or MFCC features
@@ -77,23 +75,23 @@ class DeepSpeech2(object):
             birnn_2 = network.BiRNN(birnn_1, seq_length, batch_x_shape, self.hyparam )
         with tf.variable_scope('birnn_3'):
             birnn_3 = network.BiRNN(birnn_2, seq_length, batch_x_shape, self.hyparam, use_dropout=True)
-            birnn_3 = tf.reshape(birnn_3, [batch_x_shape[0], -1, 2*self.hyparam.n_cell_dim])
+            birnn_3 = tf.reshape(birnn_3, [batch_x_shape[0], -1, 2*self.hyparam.n_cell_brnn])
             birnn_3 = tf.expand_dims(birnn_3, -1)
         with tf.variable_scope('lcnn_1'):
             # Lookahead CNN combines n time-steps in furture
-#            lcnn_1 = network.lookahead_cnn(birnn_3, [2, 2*self.hyparam.n_cell_dim, 1, 2*self.hyparam.n_cell_dim], 2, seq_length, self.hyparam, use_dropout=True)
+#            lcnn_1 = network.lookahead_cnn(birnn_3, [2, 2*self.hyparam.n_cell_brnn, 1, 2*self.hyparam.n_cell_brnn], 2, seq_length, self.hyparam, use_dropout=True)
             lcnn_1 = network.conv2d(birnn_3,
                                     [1, n_input, 1, 1],
                                     [1, 1, n_input/5, 1],
                                     2, self.hyparam, use_dropout=True)
             lcnn_1 = tf.squeeze(lcnn_1,[-1])
             width_lcnn1 = 14 # use to compute lcnn_1[-1], computed by pool_size * n_input / 5
-            lcnn_1 = tf.reshape(lcnn_1, [-1, int(math.ceil(2*self.hyparam.n_cell_dim/width_lcnn1))])
+            lcnn_1 = tf.reshape(lcnn_1, [-1, int(math.ceil(2*self.hyparam.n_cell_brnn/width_lcnn1))])
 
         with tf.variable_scope('fc'):
             b_fc = self.variable_on_device('b_fc', [n_character], tf.random_normal_initializer(stddev=self.hyparam.b_stddev))
             h_fc = self.variable_on_device('h_fc', 
-                                           [int(math.ceil(2*self.hyparam.n_cell_dim/width_lcnn1)), n_character],
+                                           [int(math.ceil(2*self.hyparam.n_cell_brnn/width_lcnn1)), n_character],
                                            tf.random_normal_initializer(stddev=self.hyparam.h_stddev))
             layer_fc = tf.add(tf.matmul(lcnn_1, h_fc), b_fc)
             # turn it to 3 dim, [n_steps, hyparam.batch_size, n_character]
@@ -147,8 +145,7 @@ class DeepSpeech2(object):
         return feed_dict
                     
     def init_session(self):
-        print "AM I here?"
-        self.savedir = self.conf.get("FILE_DATA").savedir
+        self.savedir = self.hyparam.savedir
         self.saver = tf.train.Saver(max_to_keep=1)  # 生成saver
         # create the session
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.7)
@@ -169,7 +166,7 @@ class DeepSpeech2(object):
                           
     def add_summary(self):
         self.merged = tf.summary.merge_all()
-        self.writer = tf.summary.FileWriter(self.conf.get("FILE_DATA").tensorboardfile, self.sess.graph)
+        self.writer = tf.summary.FileWriter(self.hyparam.tensorboardfile, self.sess.graph)
 
     def init_decode(self):
         self.prob = tf.nn.softmax(self.logits, dim=0)
@@ -249,7 +246,7 @@ class DeepSpeech2(object):
             epoch_duration = time.time() - epoch_start
             log = '迭代次数 {}/{}, 训练损失: {:.3f}, 错误率: {:.3f}, time: {:.2f} sec'
             print(log.format(epoch, epochs, train_cost, train_err, epoch_duration))
-            self.saver.save(self.sess, self.savedir + self.conf.get("FILE_DATA").savefile, global_step=epoch)
+            self.saver.save(self.sess, self.savedir + self.hyparam.savefile, global_step=epoch)
                                    
         train_duration = time.time() - train_start
         print('Training complete, total duration: {:.2f} min'.format(train_duration / 60))

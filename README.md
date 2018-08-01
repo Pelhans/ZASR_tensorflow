@@ -24,7 +24,7 @@
 * ~~输入MFCC特征更改为mfcc + 一阶差分 + 二阶差分~~    
 * ~~输入改为语谱图~~    
 * ~~全局使用 Batch Normalization~~    
-* 结合语言模型进行解码
+* ~~结合语言模型进行解码~~
 
 ## Ref
 以 [xxbb1234021/speech_recognition](https://github.com/xxbb1234021/speech_recognition) 为基础进行修改

@@ -5,28 +5,23 @@
 class Config():
     def __init__(self):
 
+        self.batch_size = 8
+
+        # Network hyparam
+        self.n_brnn_layers = 3
+        self.n_cell_brnn = 512
+        self.learning_rate = 0.001
+        self.keep_dropout_rate = 0.95
         self.b_stddev = 0.046875
         self.h_stddev = 0.046875
 
-        self.n_hidden = 512
-        self.n_hidden_1 = 512
-        self.n_hidden_2 = 512
-        self.n_hidden_5 = 512
-        self.n_cell_dim = 512
-        self.n_hidden_3 = 2 * 512
-
-        self.learning_rate = 0.001
-        self.keep_dropout_rate = 0.95
-        self.keep_dropout_rate = 0.95
-        self.relu_clip = 20
-
+        # Feature
         self.n_input = 39  # 计算MFCC的个数
-        self.n_context = 2  # 对于每个时间点，要包含上下文样本的个数
-        self.specgram_type = 'linear'
-        self.batch_size = 8
-        self.use_bn = True
+        self.n_context = 2  # n gram around current frame
+        self.specgram_type = 'linear' # if 'linear' use specgram. 'mfcc' use mfcc with mfcc + delta1 + delta2
+        self.use_bn = True # Batch normalization
 
-        # decoder
+        # Decoder
         self.use_lm_decoder = True
         self.alpha = 1.2
         self.beta = 2.5
@@ -35,3 +30,11 @@ class Config():
         self.num_proc_bsearch = 8
         self.beam_size = 400
         self.lang_model_path = './models/lm/zh_giga.no_cna_cmn.prune01244.klm'
+
+        # Config path
+        self.vocab_path = u'data/aishell/vocab.txt'
+        self.wav_path = u'/media/nlp/23ACE59C56A55BF3/wav_file/thchs30/thchs30_tensorflow/wav/'
+        self.lable_file = u'/media/nlp/23ACE59C56A55BF3/wav_file/thchs30/thchs30_tensorflow/doc/trans/test.word.txt'
+        self.savedir = u'/media/nlp/23ACE59C56A55BF3/wav_file/thchs30/thchs30_tensorflow/'
+        self.savefile = u'speech.cpkt'
+        self.tensorboardfile = u'/media/nlp/23ACE59C56A55BF3/wav_file/thchs30/thchs30_tensorflow/wav/log'

@@ -12,16 +12,17 @@ import wave
 
 import _init_paths
 import assert_zero
-from utils import process_manifest
+from data_utils import process_manifest
 from model_utils import init_model
-from conf import hyparam, config
+from conf.hyparam import Config
 from utils.utility import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
+conf = Config()
 # yapf: disable
 add_arg('host_port',        int,    8086,    "Server's IP port.")
-add_arg('beam_size',        int,    500,    "Beam search width.")
+add_arg('beam_size',        int,    conf.beam_size,    "Beam search width.")
 add_arg('num_conv_layers',  int,    2,      "# of convolution layers.")
 add_arg('num_rnn_layers',   int,    3,      "# of recurrent layers.")
 add_arg('rnn_layer_size',   int,    2048,   "# of recurrent cells per layer.")
