@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # coding=utf-8
 
+""" Check zero inputs for wav_files to avoid core dumped error """
+
 import os
 import wave
 from time import sleep
@@ -9,9 +11,8 @@ import numpy as np
 SUCCESS = 0
 FAIL = 1
 
-# 需要添加录音互斥功能能,某些功能开启的时候录音暂时关闭
 def ZCR(curFrame):
-    # 过零率
+    #  Zero crossing rate 
     tmp1 = curFrame[:-1]
     tmp2 = curFrame[1:]
     sings = (tmp1 * tmp2 <= 0)
@@ -21,7 +22,7 @@ def ZCR(curFrame):
 
 
 def STE(curFrame):
-    # 短时能量
+    #  short time energy 
     amp = np.sum(np.abs(curFrame))
     return amp
 

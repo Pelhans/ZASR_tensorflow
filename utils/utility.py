@@ -3,11 +3,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+''' Help to show args '''
 import distutils.util
-
-'''
-Help to show args
-'''
 
 def print_arguments(args):
     """Print argparse's arguments.

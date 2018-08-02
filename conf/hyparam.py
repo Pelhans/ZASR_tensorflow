@@ -3,6 +3,10 @@
 
 
 class Config():
+    '''
+    Class to save all config in traing and decoding
+    :param: None
+    '''
     def __init__(self):
 
         self.batch_size = 8
@@ -22,14 +26,14 @@ class Config():
         self.use_bn = True # Batch normalization
 
         # Decoder
-        self.use_lm_decoder = True
+        self.use_lm_decoder = True # Wether use lm decoder. If False, use tf.ctc_beam_search_decoder
         self.alpha = 1.2
         self.beta = 2.5
         self.cutoff_prob = 0.99
         self.cutoff_top_n = 10
         self.num_proc_bsearch = 8
         self.beam_size = 400
-        self.lang_model_path = './models/lm/zh_giga.no_cna_cmn.prune01244.klm'
+        self.lang_model_path = './models/lm/zh_giga.no_cna_cmn.prune01244.klm' # you can download it in https://github.com/PaddlePaddle/DeepSpeech
 
         # Config path
         self.vocab_path = u'data/aishell/vocab.txt'

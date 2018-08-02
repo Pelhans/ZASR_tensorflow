@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# shell script to generate manifests.{train,dev,test} mean_std.npz vocab.txt
+
 cd ../.. > /dev/null 
 
 # download data, generate manifests

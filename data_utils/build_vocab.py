@@ -24,7 +24,7 @@ add_arg = functools.partial(add_arguments, argparser=parser)
 add_arg('count_threshold',  int,    0,  "Truncation threshold for char counts.")
 add_arg('vocab_path',       str,
         'data/aishell/vocab.txt',
-        "Filepath to write the vocabulary.")
+       "Filepath to write the vocabulary.")
 add_arg('manifest_paths',   str,
         None,
         "Filepaths of manifests for building vocabulary. "

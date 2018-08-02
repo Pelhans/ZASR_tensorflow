@@ -24,16 +24,13 @@ conf = Config()
 add_arg('host_port',        int,    8086,    "Server's IP port.")
 add_arg('beam_size',        int,    conf.beam_size,    "Beam search width.")
 add_arg('num_conv_layers',  int,    2,      "# of convolution layers.")
-add_arg('num_rnn_layers',   int,    3,      "# of recurrent layers.")
-add_arg('rnn_layer_size',   int,    2048,   "# of recurrent cells per layer.")
-add_arg('alpha',            float,  2.5,   "Coef of LM for beam search.")
-add_arg('beta',             float,  0.3,   "Coef of WC for beam search.")
-add_arg('cutoff_prob',      float,  0.99,    "Cutoff probability for pruning.")
-add_arg('cutoff_top_n',     int,    40,     "Cutoff number for pruning.")
-add_arg('use_gru',          bool,   True,  "Use GRUs instead of simple RNNs.")
+add_arg('num_brnn_layers',  int,    conf.n_brnn_layers,      "# of recurrent layers.")
+add_arg('rnn_layer_size',   int,    conf.n_cell_brnn,   "# of recurrent cells per layer.")
+add_arg('alpha',            float,  conf.alpha,   "Coef of LM for beam search.")
+add_arg('beta',             float,  conf.beta,   "Coef of WC for beam search.")
+add_arg('cutoff_prob',      float,  conf.cutoff_prob,    "Cutoff probability for pruning.")
+add_arg('cutoff_top_n',     int,    conf.cutoff_top_n,     "Cutoff number for pruning.")
 add_arg('use_gpu',          bool,   True,   "Use GPU or not.")
-add_arg('share_rnn_weights',bool,   False,   "Share input-hidden weights across "
-                                            "bi-directional RNNs. Not for GRU.")
 add_arg('host_ip',          str,
         'localhost',
         "Server's IP address.")
@@ -44,24 +41,24 @@ add_arg('warmup_manifest',  str,
         'data/aishell/manifest.dev',
         "Filepath of manifest to warm up.")
 add_arg('mean_std_path',    str,
-        'data/potevio/mean_std.npz',
+        'data/aishell/mean_std.npz',
         "Filepath of normalizer's mean & std.")
 add_arg('vocab_path',       str,
-        'data/potevio/vocab.txt',
+        'data/aishell/vocab.txt',
         "Filepath of vocabulary.")
 add_arg('model_path',       str,
-        './checkpoints/potevio/params.tar.gz',
+        conf.savedir + conf.savefile,
         "If None, the training starts from scratch, "
         "otherwise, it resumes from the pre-trained model.")
 add_arg('lang_model_path',  str,
-        'models/lm/zh_giga.no_cna_cmn.prune01244.klm',
+        conf.lang_model_path,
         "Filepath for language model.")
-add_arg('decoding_method',  str,
-        'ctc_beam_search',
+add_arg('use lm decoder',  bool,
+        conf.use_lm_decoder,
         "Decoding method. Options: ctc_beam_search, ctc_greedy",
         choices = ['ctc_beam_search', 'ctc_greedy'])
 add_arg('specgram_type',    str,
-        'linear',
+        conf.specgram_type,
         "Audio feature type. Options: linear, mfcc.",
         choices=['linear', 'mfcc'])
 # yapf: disable

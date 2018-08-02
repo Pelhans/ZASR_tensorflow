@@ -15,13 +15,19 @@ from model_utils import network
 from utils.decoder.model import LM_decoder
 
 class DeepSpeech2(object):
-    '''
-    Class to init model with:
-    wav_files: path to wav files
-    text_labels: transcript for wav files
-    words_size: the size of vocab
-    words : a list for vocab
-    mZword_num_map: a map dict from word to num
+    ''' Class to init model
+
+    :param wav_files: path to wav files
+    :type wav_files: str
+    :param text_labels: transcript for wav files
+    :type text_labels: list
+    :param words_size: the size of vocab
+    :type words_size: int
+    :param words : a list for vocab
+    :type words: list
+    :param word_num_map: a map dict from word to num
+    :type word_num_map: dict
+    return 
     '''
     def __init__(self, wav_files, text_labels, words_size, words, word_num_map):
         self.hyparam = Config()
@@ -30,7 +36,7 @@ class DeepSpeech2(object):
         self.words_size = words_size
         self.words = words
         self.word_num_map = word_num_map
-        # mfcc 特征向量39 * 2 * 2 + 39 = 195维, linear specgram 161 维(8000-0)/50 + 1
+        # mfcc features contains 39 * 2 * 2 + 39 = 195 dims , linear specgram 161 dim which 161 = (8000-0)/50 + 1 
         self.n_dim = self.hyparam.n_input + 2 * self.hyparam.n_input * self.hyparam.n_context if self.hyparam.specgram_type == 'mfcc' else 161
 
     def add_placeholders(self):
@@ -100,16 +106,15 @@ class DeepSpeech2(object):
         self.logits = layer_fc
 
     def loss(self):      
+        """ Define loss
+        return
         """              
-        定义loss         
-        :return:         
-        """              
-        # 调用ctc loss   
-        with tf.name_scope('loss'): #损失
+        # ctc loss   
+        with tf.name_scope('loss'):
             self.avg_loss = tf.reduce_mean(ctc_ops.ctc_loss(self.text, self.logits, self.seq_length))
             tf.summary.scalar('loss',self.avg_loss)
         # [optimizer]    
-        with tf.name_scope('train'): #训练过程
+        with tf.name_scope('train'):
             self.optimizer = tf.train.AdamOptimizer(learning_rate=self.hyparam.learning_rate).minimize(self.avg_loss)
                          
         with tf.name_scope("decode"):
@@ -122,14 +127,14 @@ class DeepSpeech2(object):
 
         with tf.name_scope("accuracy"):
             self.distance = tf.edit_distance(tf.cast(self.decoded[0], tf.int32), self.text)
-            # 计算label error rate (accuracy)
+            # compute label error rate (accuracy)
             self.label_err = tf.reduce_mean(self.distance, name='label_error_rate')
             tf.summary.scalar('accuracy', self.label_err)
 
 
     def get_feed_dict(self, dropout=None):
-        """         
-        定义变量    
+        """ Define feed dict
+
         :param dropout: 
         :return:    
         """         
@@ -146,12 +151,10 @@ class DeepSpeech2(object):
                     
     def init_session(self):
         self.savedir = self.hyparam.savedir
-        self.saver = tf.train.Saver(max_to_keep=1)  # 生成saver
-        # create the session
+        self.saver = tf.train.Saver(max_to_keep=1)
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.7)
         self.sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
-        # sess = tf.Session()
-        # 没有模型的话，就重新初始化
+        # if no models , init it
         self.sess.run(tf.global_variables_initializer())
                     
         ckpt = tf.train.latest_checkpoint(self.savedir)
@@ -188,29 +191,24 @@ class DeepSpeech2(object):
                           
     def train(self):      
         epochs = 120      
-                          
-        # 准备运行训练步骤
         section = '\n{0:=^40}\n'
-        print section.format('开始训练')
+        print section.format('Start training...')
                           
         train_start = time.time()
-        for epoch in range(epochs):  # 样本集迭代次数
+        for epoch in range(epochs):
             epoch_start = time.time()
             if epoch < self.startepo:
                 continue  
                           
-            print "第：", epoch, " 次迭代，一共要迭代 ", epochs, "次"
-            #######################run batch####
+            print "Current epoch ：", epoch, "  the total epochs is ", epochs
             n_batches_epoch = int(np.ceil(len(self.text_labels) / self.hyparam.batch_size))
-            print "在本次迭代中一共循环： ", n_batches_epoch, "每次取：", self.hyparam.batch_size
+            print "CUrrent epoch contains batchs: ", n_batches_epoch, " the batch size is ：", self.hyparam.batch_size
                           
             train_cost = 0
             train_err = 0
             next_idx = 0  
 
-            for batch in range(n_batches_epoch):  # 一次self.hyparam.batch_size，取多少次
-                # 取数据
-                # temp_next_idx, temp_audio_features, temp_audio_features_len, temp_sparse_labels
+            for batch in range(n_batches_epoch):
                 next_idx, self.audio_features, self.audio_features_len, self.sparse_labels, wav_files = utils.next_batch(
                     next_idx,
                     self.hyparam.batch_size,
@@ -221,7 +219,6 @@ class DeepSpeech2(object):
                     self.word_num_map,
                     specgram_type=self.hyparam.specgram_type)
  
-                # 计算 avg_loss optimizer ;
                 batch_cost, _ = self.sess.run([self.avg_loss, self.optimizer], feed_dict=self.get_feed_dict())
                 train_cost += batch_cost
  
@@ -229,22 +226,22 @@ class DeepSpeech2(object):
                     rs = self.sess.run(self.merged, feed_dict=self.get_feed_dict())
                     self.writer.add_summary(rs, batch)
  
-                    print '循环次数:', batch, '损失: ', train_cost / (batch + 1)
+                    print 'Current batch :', batch, ' Loss: ', train_cost / (batch + 1)
  
                     d, train_err = self.sess.run([self.decoded[0], self.label_err], feed_dict=self.get_feed_dict(dropout=1.0))
                     dense_decoded = tf.sparse_tensor_to_dense(d, default_value=-1).eval(session=self.sess)
                     dense_labels = utils.trans_tuple_to_texts_ch(self.sparse_labels, self.words)
  
-                    print '错误率: ', train_err
+                    print 'error rate: ', train_err
                     for orig, decoded_array in zip(dense_labels, dense_decoded):
                         # convert to strings
                         decoded_str = utils.trans_array_to_text_ch(decoded_array, self.words)
-                        print '语音原始文本: ', orig
-                        print '识别出来的文本: ', decoded_str
+                        print 'Orinal inputs: ', orig
+                        print 'Transcript: ', decoded_str
                         break
  
             epoch_duration = time.time() - epoch_start
-            log = '迭代次数 {}/{}, 训练损失: {:.3f}, 错误率: {:.3f}, time: {:.2f} sec'
+            log = 'Epoch {}/{}, Loss: {:.3f}, error rate: {:.3f}, time: {:.2f} sec'
             print(log.format(epoch, epochs, train_cost, train_err, epoch_duration))
             self.saver.save(self.sess, self.savedir + self.hyparam.savefile, global_step=epoch)
                                    
@@ -267,8 +264,8 @@ class DeepSpeech2(object):
                self.word_num_map,
                specgram_type=self.hyparam.specgram_type) 
                                    
-            print '读入语音文件: ', wav_files[0]
-            print '开始识别语音数据......'
+            print 'Load wav file: ', wav_files[0]
+            print 'Recognizing......'
                                    
             prob, d, train_ler = self.sess.run([self.prob, self.decoded[0], self.label_err], feed_dict=self.get_feed_dict(dropout=1.0))
             dense_labels = utils.trans_tuple_to_texts_ch(self.sparse_labels, self.words)
@@ -281,7 +278,7 @@ class DeepSpeech2(object):
                 dense_decoded = tf.sparse_tensor_to_dense(d, default_value=-1).eval(session=self.sess)
                 print "dense_decoded", np.shape(dense_decoded), dense_decoded
                 for orig, decoded_array in zip(dense_labels, dense_decoded):
-                # 转成string        
+                # turn to string        
                     decoded_str = utils.trans_array_to_text_ch(decoded_array, self.words)
                     print "Orinal text:", orig
                     print "Transcript: ", decoded_str

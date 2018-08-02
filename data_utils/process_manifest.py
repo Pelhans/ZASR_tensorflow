@@ -1,13 +1,17 @@
 #!/usr/bin/env python
 # coding=utf-8
 
+""" Data pre-process """
+
 import json
 from collections import Counter
 
 def get_path_trans(manifest_path="data/aishell/manifest.train"  ):
-    '''
-    Get path_to_wav and transcript list 
-    from data/manifest.{train,dev,test}
+    '''Get path_to_wav and transcript list from data/manifest.{train,dev,test}
+
+    :param manifest_path: path to manifest file
+    :type manifest: str
+    return
     '''
 
     path_to_wav = []
@@ -22,8 +26,11 @@ def get_path_trans(manifest_path="data/aishell/manifest.train"  ):
     return path_to_wav, transcript, duration
 
 def create_dict(vocab):
-    '''
-    Creat word dict and map from word to num
+    '''Creat word dict and map from word to num
+
+    :param vocab: path to vocab.txt
+    :type vocab: str
+    return 
     '''
 
     total_words = open(vocab, 'r').readlines()

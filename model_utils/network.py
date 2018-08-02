@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding=utf-8
 
+""" Deep Network wraper for BRNN CNN Lookahead CNN """
 import tensorflow as tf
 import numpy as np
 
@@ -9,6 +10,22 @@ offset = tf.Variable(tf.zeros([1]))
 variance_epsilon = 0.001
 
 def conv2d(batch_x, filter_shape, strides, pool_size, hyparam, use_dropout=False):
+    ''' Convolution Network wraper for tf.conv2d, contains conv relu act and pooling
+
+    :param batch_x: input tensor with shape [batch_size, time_steps, features_dim, in_channel]
+    :type batch_x: tensorflow tensor
+    :param filter_shape: a list to control filtr shape, [height, width, in_channel, out_channel]
+    :type filter_shape: list
+    :param strides: a list to control conv strides, [1, height, width, 1]
+    :type strides: list
+    :param pool_size: pooling size, default value is 2
+    :type pool_size: int
+    :param hyparam: hyparam config class
+    :type hyparam: class
+    :param use_dropout: decide wether use dropout
+    :type use_dropout: bool
+    return a tensor with shape [batch_size, height, width. out_channel]
+    '''
     if hyparam.use_bn:
         batch_mean, batch_var = tf.nn.moments(batch_x, [0, 1, 2])
         batch_x = tf.nn.batch_normalization(batch_x, batch_mean, batch_var, offset, scale, variance_epsilon)
@@ -30,7 +47,24 @@ def conv2d(batch_x, filter_shape, strides, pool_size, hyparam, use_dropout=False
 
     return conv
 
+# Ongoing...
 def lookahead_cnn(inputs, filter_shape, pool_size, seq_length, hyparam, use_dropout=True):
+    ''' Lookahead CNN combines 2 future inputs.
+    
+    :param inputs: input tensor with shape [batch_size, time_steps, features_dim, in_channel]
+    :type inputs: tensorflow tensor
+    :param filter_shape: a list to control filtr shape, [height, width, in_channel, out_channel]
+    :type filter_shape: list
+    :param strides: a list to control conv strides, [1, height, width, 1]
+    :type strides: list
+    :param pool_size: pooling size, default value is 2
+    :type pool_size: int
+    :param hyparam: hyparam config class
+    :type hyparam: class
+    :param use_dropout: decide wether use dropout
+    :type use_dropout: bool
+    return a tensor with shape [batch_size, height, width. out_channel]
+    '''
     # combine 2 ahead inputs
 
     lcnn_inputs = []
@@ -57,6 +91,20 @@ def lookahead_cnn(inputs, filter_shape, pool_size, seq_length, hyparam, use_drop
     return lcnn_layer
 
 def BiRNN(inputs, seq_length, batch_x_shape, hyparam, use_dropout=False):
+    '''BiRNN wraper with time major
+
+    :param inputs: input tensor with time_major, [time_steps, batch_size, features_dim]
+    :type inputs: tensor
+    :param seq_length: length of input audio
+    :type seq_length: tensor
+    :param batch_x_shape: shape of inputs in dim 0
+    :type batch_x_shape: tensor
+    :param hyparam: model config in class hyparam
+    :type hyparam: class
+    :param use_dropout: wether use dropout
+    :type use_dropout: bool
+    return a tensor with [time_steps, batch_size, features_dim]
+    '''
     
     if hyparam.use_bn:
         batch_mean, batch_var = tf.nn.moments(inputs, [0, 1, 2])

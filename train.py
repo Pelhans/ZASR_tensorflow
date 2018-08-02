@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # coding=utf-8
 
+"""Trainer for DeepSpeech2 model."""
+from __future__ import absolute_import
+from __future__ import division     
+from __future__ import print_function
 
 from data_utils import process_manifest
 from model_utils import init_model

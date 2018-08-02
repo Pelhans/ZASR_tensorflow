@@ -17,71 +17,6 @@ from conf.hyparam import Config
 To help creat train set and get batch from data
 '''
 
-def get_wavs_lables():
-    conf = config.Config()
-    print "Config.wav_path: ", Config.wav_path
-    wav_files, text_labels = do_get_wavs_lables(Config.wav_path,
-                                                Config.label_file)
-    print(wav_files[0], text_labels[0])
-    return wav_files, text_labels
-
-
-def do_get_wavs_lables(wav_path, label_file):
-    """
-    读取wav文件对应的label
-    :param wav_path:
-    :param label_file:
-    :return:
-    """
-    # 获得训练用的wav文件路径列表
-    wav_files = []
-    for (dirpath, dirnames, filenames) in os.walk(wav_path):
-        for filename in filenames:
-            if filename.endswith('.wav') or filename.endswith('.WAV'):
-                filename_path = os.sep.join([dirpath, filename])
-                if os.stat(filename_path).st_size < 240000:  # 剔除掉一些小文件
-                    continue
-                wav_files.append(filename_path)
-
-    labels_dict = {}
-    with open(label_file, 'rb') as f:
-        for label in f:
-            label = label.strip(b'\n')
-            label_id = label.split(b' ', 1)[0]
-            label_text = label.split(b' ', 1)[1]
-            labels_dict[label_id.decode('ascii')] = label_text.decode('utf-8')
-
-    labels = []
-    new_wav_files = []
-    for wav_file in wav_files:
-        # print(os.path.basename(wav_file))
-        wav_id = os.path.basename(wav_file).split('.')[0]
-
-        if wav_id in labels_dict:
-            labels.append(labels_dict[wav_id])
-            new_wav_files.append(wav_file)
-
-    return new_wav_files, labels
-
-
-def create_dict(text_labels):
-    """
-    构建字典
-    :param text_labels:
-    :return:
-    """
-    all_words = []
-    for label in text_labels:
-        all_words += [word for word in label]
-    counter = Counter(all_words)
-    words = sorted(counter)
-    words_size = len(words)
-    word_num_map = dict(zip(words, range(words_size)))
-    print('字表大小:', words_size)
-
-    return words_size, words, word_num_map
-
-
 def next_batch(start_idx=0,
                batch_size=1,
                n_input=None,
@@ -90,8 +25,8 @@ def next_batch(start_idx=0,
                wav_files=None,
                word_num_map=None,
                specgram_type='mfcc'):
-    """
-    按批次获取样本
+    """ Get data batch for training
+    
     :param start_idx:
     :param batch_size:
     :param n_input:
@@ -116,20 +51,23 @@ def next_batch(start_idx=0,
                                                                                                specgram_type)
 
     start_idx += batch_size
-    # 验证 start_idx
+    # confirm start_idx
     if start_idx >= filesize:
         start_idx = -1
 
-    # 如果多个文件将长度统一，支持按最大截断或补0
+    # use 0 padding when serveral inputs
     audio_features, audio_features_len = pad_sequences(audio_features)
     sparse_labels = sparse_tuple_from(text_vector)
 
     return start_idx, audio_features, audio_features_len, sparse_labels, wav_files
 
 
-def get_audio_mfcc_features(txt_files, wav_files, n_input, n_context, word_num_map, txt_labels=None, specgram_type='mfcc', mean_std_filepath='data/aishell/mean_std.npz'):
-    """
-    提取音频数据的MFCC特征
+def get_audio_mfcc_features(txt_files, wav_files, n_input,
+                            n_context, word_num_map, txt_labels=None, 
+                            specgram_type='mfcc', mean_std_filepath='data/aishell/mean_std.npz'):
+    """ Get MFCC/linear specgram  features. The dim of MFCC is 39, contains 13 mfcc + 13 delta1 + 13 delta2.
+        Linear specgram contains 161 features in different frequency section.
+    
     :param txt_files:
     :param wav_files:
     :param n_input:
@@ -147,7 +85,7 @@ def get_audio_mfcc_features(txt_files, wav_files, n_input, n_context, word_num_m
     get_feature = AudioFeaturizer(specgram_type)
     normalizer = FeatureNormalizer(mean_std_filepath)
     for txt_obj, wav_file in zip(txt_labels, wav_files):
-        # 载入音频数据并转化为特征值
+        # Turn inputs into features
         if specgram_type == 'mfcc':
             audio_data = audiofile_to_input_vector(wav_file, n_input, n_context) # get mfcc feature ( ???, 741 )
         elif specgram_type == 'linear':
@@ -160,13 +98,11 @@ def get_audio_mfcc_features(txt_files, wav_files, n_input, n_context, word_num_m
         audio_features.append(audio_data)
         audio_features_len.append(np.int32(len(audio_data)))
 
-        # 载入音频对应的文本
         target = []
         if txt_files != None:  # txt_obj是文件
             target = trans_text_ch_to_vector(txt_obj, word_num_map)
         else:
             target = trans_text_ch_to_vector(None, word_num_map, txt_obj)  # txt_obj是labels
-        # target = text_to_char_array(target)
         text_vector.append(target)
         text_vector_len.append(len(target))
 
@@ -178,8 +114,8 @@ def get_audio_mfcc_features(txt_files, wav_files, n_input, n_context, word_num_m
 
 
 def sparse_tuple_from(sequences, dtype=np.int32):
-    """
-    密集矩阵转稀疏矩阵
+    """ Turn dense matrix to sparse matrix
+
     :param sequences:
     :param dtype:
     :return:
@@ -193,16 +129,14 @@ def sparse_tuple_from(sequences, dtype=np.int32):
 
     indices = np.asarray(indices, dtype=np.int64)
     values = np.asarray(values, dtype=dtype)
-    # temp = indices.max(0)
     shape = np.asarray([len(sequences), indices.max(0)[1] + 1], dtype=np.int64)
 
-    # return tf.SparseTensor(indices=indices, values=values, dense_shape=shape)
     return indices, values, shape
 
 
 def trans_text_ch_to_vector(txt_file, word_num_map, txt_label=None):
-    """
-    中文字符到向量
+    """ Trans chinese chars to vector
+    
     :param txt_file:
     :param word_num_map:
     :param txt_label:
@@ -223,16 +157,13 @@ def get_ch_lable(txt_file):
     labels = ""
     with open(txt_file, 'rb') as f:
         for label in f:
-            # labels =label.decode('utf-8')
             labels = labels + label.decode('gb2312')
-            # labels.append(label.decode('gb2312'))
-
     return labels
 
 
 def trans_tuple_to_texts_ch(tuple, words):
-    """
-    向量转换成文字
+    """ Trans vector to chars
+    
     :param tuple:
     :param words:
     :return:
@@ -257,39 +188,37 @@ def trans_array_to_text_ch(value, words):
 
 
 def audiofile_to_input_vector(audio_filename, n_input, n_context):
-    """
-    将音频装换成MFCC
+    """ Compute MFCC features with n_context
+
     :param audio_filename:
     :param n_input:
     :param n_context:
     :return:
     """
-    # 加载wav文件
     fs, audio = wav.read(audio_filename)
 
-    # 获取mfcc数值
+    # get mfcc features with dim 39
     get_feature = AudioFeaturizer("mfcc")
     speech_segment = SpeechSegment.from_file(audio_filename, "")
-    orig_inputs = get_feature.featurize(speech_segment) # (39, 840)
-    orig_inputs = np.transpose(orig_inputs) # (599, 39)
+    orig_inputs = get_feature.featurize(speech_segment) # (39, ?)
+    orig_inputs = np.transpose(orig_inputs) # trans to time major (?, 39)
 
-#    orig_inputs = mfcc(audio, samplerate=fs, numcep=n_input)
-#    orig_inputs = orig_inputs[::2]  # (***/2, 26) 每隔一行进行一次取样
 
     train_inputs = np.zeros((orig_inputs.shape[0], n_input + 2 * n_input * n_context)) #(***/2, 195)
     empty_mfcc = np.zeros((n_input))
 
-    # 准备输入数据，数据由三部分安顺序拼接而成，分为当前样本的前9个序列样本，当前样本序列，后9个序列样本
-    time_slices = range(train_inputs.shape[0])  # 139个切片
+    # Prepare input data, consist of three parts, 
+    # output is (past hyparam.n_context * 39 + current + future hyparam.n_context * 39)
+    time_slices = range(train_inputs.shape[0])
     context_past_min = time_slices[0] + n_context
-    context_future_max = time_slices[-1] - n_context  # [9,1,2...,137,129]
+    context_future_max = time_slices[-1] - n_context
     for time_slice in time_slices:
-        # 前9个补0，mfcc features
+        # padding with 0 for the first of 9，mfcc features
         need_empty_past = max(0, (context_past_min - time_slice))
         empty_source_past = list(empty_mfcc for empty_slots in range(need_empty_past))
         data_source_past = orig_inputs[ max(0, time_slice - n_context):time_slice]
 
-        # 后9个补0，mfcc features
+        # padding with 0 for the last of 9，mfcc features
         need_empty_future = max(0, (time_slice - context_future_max))
         empty_source_future = list(empty_mfcc for empty_slots in range(need_empty_future))
         data_source_future = orig_inputs[time_slice + 1:time_slice + n_context + 1]
@@ -307,20 +236,19 @@ def audiofile_to_input_vector(audio_filename, n_input, n_context):
         past = np.reshape(past, n_context * 39)
         now = orig_inputs[time_slice]
         future = np.reshape(future, n_context * n_input)
-        train_inputs[time_slice] = np.concatenate((past, now, future)) # 对于当前采样，包含过去9*26 + 当前26 + 未来 26*9 = 494
+        train_inputs[time_slice] = np.concatenate((past, now, future))
 
-    # 将数据使用正太分布标准化，减去均值然后再除以方差
+    # Tran data to Norm distribution, minus mean value then over the varr
     train_inputs = (train_inputs - np.mean(train_inputs)) / np.std(train_inputs)
 
-    # shape of train_inputs: (shape(orig_inputs)/2, 494)
+    # shape of train_inputs: (shape(orig_inputs)/2, n_context * 2 * 39 + 39)
     return train_inputs 
 
 
 def pad_sequences(sequences, maxlen=None, dtype=np.float32,
                   padding='post', truncating='post', value=0.):
-    """
-    音频数据对齐
-    post表示后补0  pre表示前补0
+    """ Padding data with 0
+    
     :param sequences:
     :param maxlen:
     :param dtype:
@@ -335,12 +263,9 @@ def pad_sequences(sequences, maxlen=None, dtype=np.float32,
     if maxlen is None:
         maxlen = np.max(sequences_each_len)
 
-    # 从第一个非空的序列中的样本形状
     sample_shape = tuple()
     for s in sequences:
         if len(s) > 0:
-            # test
-            # temp = np.asarray(s)
             sample_shape = np.asarray(s).shape[1:]
             break
 
@@ -371,7 +296,5 @@ def pad_sequences(sequences, maxlen=None, dtype=np.float32,
 
 
 if __name__ == "__main__":
-    conf = config.Config()
 
-    do_get_wavs_lables(conf.get("FILE_DATA").wav_path, conf.get("FILE_DATA").label_file)
-    print()
+    print("")
