@@ -7,6 +7,8 @@
 <br/> 百度Deepspeech2 语音识别模型结构
 </p>
 
+**目前模型训练存在不收敛情况，正在调参研究中**
+
 ## 安装
 ### Prerequisites
 * 本程序基于 Python2.7    
@@ -40,12 +42,7 @@ sudo apt-get install -y pkg-config libflac-dev libogg-dev libvorbis-dev libboost
 语言模型用于测试和使用阶段的解码。因此当声学模型训练时，语言模型的参数也需要进行改变。hyparam里的参数只是随手写的...
 
 ## TODO
-* ~~根据论文修改模型结构~~    
-* ~~实现 server/ client的调用~~  
-* ~~输入MFCC特征更改为mfcc + 一阶差分 + 二阶差分~~    
-* ~~输入改为语谱图~~    
-* ~~全局使用 Batch Normalization~~    
-* ~~结合语言模型进行解码~~
+* 对模型进行调参或结构调整使其能够使用。
 
 ## Ref
 以 [xxbb1234021/speech_recognition](https://github.com/xxbb1234021/speech_recognition) 和 [PaddlePaddle/Deepspeech2](https://github.com/PaddlePaddle/DeepSpeech)为基础进行修改
